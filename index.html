@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prediction Market</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a1a;--surface:#111127;--surface2:#1a1a3e;--border:#2a2a5a;
+  --blue:#3b82f6;--green:#10b981;--amber:#f59e0b;--red:#ef4444;
+  --text:#e2e8f0;--text2:#94a3b8;--radius:12px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+a{color:var(--blue)}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* HEADER */
+.header{background:linear-gradient(135deg,var(--surface),var(--surface2));border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:100;backdrop-filter:blur(20px)}
+.header h1{font-size:1.1rem;letter-spacing:3px;color:var(--blue);font-weight:700;text-transform:uppercase;white-space:nowrap}
+.header-stats{display:flex;gap:16px;flex-wrap:wrap;margin-left:auto}
+.header-stat{text-align:center;padding:4px 12px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.15);border-radius:8px}
+.header-stat .label{font-size:.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2)}
+.header-stat .value{font-size:1rem;font-weight:700;color:var(--blue)}
+.header-actions{display:flex;gap:8px}
+.btn{padding:8px 16px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:8px;cursor:pointer;font-size:.8rem;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--blue);background:rgba(59,130,246,.1)}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+.btn-primary:hover{background:#2563eb}
+.btn-green{background:rgba(16,185,129,.15);border-color:var(--green);color:var(--green)}
+.btn-green:hover{background:rgba(16,185,129,.3)}
+.btn-red{background:rgba(239,68,68,.15);border-color:var(--red);color:var(--red)}
+.btn-red:hover{background:rgba(239,68,68,.3)}
+.btn-sm{padding:5px 10px;font-size:.7rem}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:1fr 280px;gap:20px;padding:20px;max-width:1600px;margin:0 auto}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.sidebar{order:3}}
+
+/* CONTROLS */
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.controls select,.controls input{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:8px;font-size:.8rem}
+
+/* CARDS */
+.card{background:linear-gradient(135deg,rgba(17,17,39,.9),rgba(26,26,62,.7));border:1px solid var(--border);border-radius:var(--radius);padding:16px;backdrop-filter:blur(10px);transition:all .3s}
+.card:hover{border-color:rgba(59,130,246,.3);transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.predictions-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.pred-question{font-size:.95rem;font-weight:600;margin-bottom:10px;line-height:1.4}
+.pred-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.tag{font-size:.65rem;padding:3px 8px;border-radius:20px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.tag-life{background:rgba(59,130,246,.15);color:var(--blue)}
+.tag-career{background:rgba(16,185,129,.15);color:var(--green)}
+.tag-alpine{background:rgba(139,92,246,.15);color:#8b5cf6}
+.tag-markets{background:rgba(245,158,11,.15);color:var(--amber)}
+.tag-tech{background:rgba(6,182,212,.15);color:#06b6d4}
+.tag-wildcard{background:rgba(236,72,153,.15);color:#ec4899}
+.importance{font-size:.6rem;padding:2px 6px;border-radius:4px;font-weight:700;text-transform:uppercase}
+.importance-high{background:rgba(239,68,68,.2);color:var(--red)}
+.importance-medium{background:rgba(245,158,11,.2);color:var(--amber)}
+.importance-low{background:rgba(148,163,184,.2);color:var(--text2)}
+.days-left{font-size:.7rem;color:var(--text2);margin-left:auto}
+.prob-bar-wrap{height:6px;background:var(--surface);border-radius:3px;margin:10px 0;overflow:hidden}
+.prob-bar{height:100%;border-radius:3px;transition:width .5s ease}
+.prob-display{font-size:1.8rem;font-weight:800;margin:4px 0}
+.pred-actions{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.history-line{font-size:.65rem;color:var(--text2);margin-top:6px;font-style:italic}
+
+/* RESOLVED */
+.resolved-section{margin-top:24px}
+.resolved-header{display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 0;user-select:none}
+.resolved-header h2{font-size:1rem;letter-spacing:1px}
+.resolved-header .arrow{transition:transform .3s}
+.resolved-header.open .arrow{transform:rotate(90deg)}
+.resolved-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:10px}
+.resolved-card{opacity:.85}
+.resolved-card .outcome{font-size:1.2rem;font-weight:800;display:flex;align-items:center;gap:6px}
+.outcome-yes{color:var(--green)}.outcome-no{color:var(--red)}
+
+/* SIDEBAR */
+.sidebar .card{margin-bottom:14px}
+.sidebar h3{font-size:.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2);margin-bottom:12px}
+.stat-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(42,42,90,.5);font-size:.85rem}
+.stat-row:last-child{border:none}
+.stat-row .val{font-weight:700;color:var(--blue)}
+
+/* CHART */
+.chart-section{grid-column:1/-1;margin-top:10px}
+.chart-container{display:flex;gap:20px;flex-wrap:wrap}
+.chart-wrap{flex:1;min-width:300px}
+canvas{width:100%;border-radius:8px;background:var(--surface)}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s}
+.modal-overlay.active{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:90%;max-width:500px;transform:scale(.9);transition:transform .3s}
+.modal-overlay.active .modal{transform:scale(1)}
+.modal h2{font-size:1.1rem;margin-bottom:16px;color:var(--blue)}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:4px}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.9rem}
+.form-group textarea{resize:vertical;min-height:60px}
+.slider-wrap{display:flex;align-items:center;gap:12px}
+.slider-wrap input[type=range]{flex:1;accent-color:var(--blue)}
+.slider-val{font-size:1.2rem;font-weight:800;min-width:50px;text-align:center}
+.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+
+/* UPDATE MODAL */
+.update-modal .slider-val{color:var(--blue)}
+
+/* PIE */
+.pie-wrap{display:flex;justify-content:center;margin-top:10px}
+.pie-legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;justify-content:center}
+.pie-legend-item{font-size:.65rem;display:flex;align-items:center;gap:4px}
+.pie-legend-item .dot{width:8px;height:8px;border-radius:50%}
+
+/* ANIMATIONS */
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.card{animation:fadeIn .4s ease forwards}
+
+/* TOAST */
+.toast{position:fixed;bottom:20px;right:20px;background:var(--surface2);border:1px solid var(--blue);color:var(--text);padding:12px 20px;border-radius:8px;z-index:300;transform:translateY(100px);opacity:0;transition:all .3s}
+.toast.show{transform:translateY(0);opacity:1}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <h1>📊 Prediction Market</h1>
+  <div class="header-stats">
+    <div class="header-stat"><div class="label">Active</div><div class="value" id="h-active">0</div></div>
+    <div class="header-stat"><div class="label">Resolved</div><div class="value" id="h-resolved">0</div></div>
+    <div class="header-stat"><div class="label">Calibration</div><div class="value" id="h-calibration">—</div></div>
+    <div class="header-stat"><div class="label">Brier Score</div><div class="value" id="h-brier">—</div></div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-primary" onclick="openModal()">+ New <span style="font-size:.6rem;opacity:.7">(N)</span></button>
+    <button class="btn" onclick="exportData()">↓ Export</button>
+    <button class="btn" onclick="document.getElementById('importFile').click()">↑ Import</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+  <div class="main-content">
+    <!-- CONTROLS -->
+    <div class="controls">
+      <select id="filterCat" onchange="render()">
+        <option value="all">All Categories</option>
+        <option value="Life">Life</option><option value="Career">Career</option>
+        <option value="ALPINE">ALPINE</option><option value="Markets">Markets</option>
+        <option value="Tech">Tech</option><option value="Wild Card">Wild Card</option>
+      </select>
+      <select id="sortBy" onchange="render()">
+        <option value="date">Sort: Date</option>
+        <option value="probability">Sort: Probability</option>
+        <option value="importance">Sort: Importance</option>
+        <option value="days">Sort: Days Left</option>
+      </select>
+    </div>
+
+    <!-- ACTIVE PREDICTIONS -->
+    <div class="predictions-grid" id="activeGrid"></div>
+
+    <!-- RESOLVED PREDICTIONS -->
+    <div class="resolved-section">
+      <div class="resolved-header" id="resolvedToggle" onclick="toggleResolved()">
+        <span class="arrow">▶</span>
+        <h2>Resolved Predictions</h2>
+        <span id="resolvedCount" style="color:var(--text2);font-size:.8rem"></span>
+      </div>
+      <div id="resolvedContent" style="display:none">
+        <div class="resolved-grid" id="resolvedGrid"></div>
+      </div>
+    </div>
+
+    <!-- CHARTS -->
+    <div class="chart-section">
+      <div class="chart-container">
+        <div class="chart-wrap card">
+          <h3 style="margin-bottom:10px;font-size:.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2)">Calibration Plot</h3>
+          <canvas id="calibrationCanvas" height="300"></canvas>
+        </div>
+        <div class="chart-wrap card">
+          <h3 style="margin-bottom:10px;font-size:.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2)">Brier Score Over Time</h3>
+          <canvas id="brierCanvas" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="card">
+      <h3>Quick Stats</h3>
+      <div id="statsContent"></div>
+    </div>
+    <div class="card">
+      <h3>By Category</h3>
+      <div class="pie-wrap"><canvas id="pieCanvas" width="180" height="180"></canvas></div>
+      <div class="pie-legend" id="pieLegend"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE MODAL -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal">
+    <h2>New Prediction</h2>
+    <div class="form-group">
+      <label>Question</label>
+      <textarea id="f-question" placeholder="Will X happen by Y?"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Your Probability</label>
+      <div class="slider-wrap">
+        <input type="range" id="f-prob" min="1" max="99" value="50" oninput="document.getElementById('f-prob-val').textContent=this.value+'%'">
+        <div class="slider-val" id="f-prob-val">50%</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Category</label>
+      <select id="f-cat">
+        <option>Life</option><option>Career</option><option>ALPINE</option>
+        <option>Markets</option><option>Tech</option><option>Wild Card</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Resolution Date</label>
+      <input type="date" id="f-date">
+    </div>
+    <div class="form-group">
+      <label>Importance</label>
+      <select id="f-importance">
+        <option>Medium</option><option>Low</option><option>High</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createPrediction()">Create Prediction</button>
+    </div>
+  </div>
+</div>
+
+<!-- UPDATE MODAL -->
+<div class="modal-overlay update-modal" id="updateModal">
+  <div class="modal">
+    <h2>Update Probability</h2>
+    <p id="u-question" style="margin-bottom:14px;color:var(--text2);font-size:.9rem"></p>
+    <div class="form-group">
+      <div class="slider-wrap">
+        <input type="range" id="u-prob" min="1" max="99" value="50" oninput="document.getElementById('u-prob-val').textContent=this.value+'%'">
+        <div class="slider-val" id="u-prob-val">50%</div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeUpdateModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitUpdate()">Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── DATA LAYER ───
+const STORAGE_KEY = 'prediction_market_data';
+let predictions = [];
+let updatingId = null;
+
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(predictions)); }
+function load() {
+  const d = localStorage.getItem(STORAGE_KEY);
+  if (d) { predictions = JSON.parse(d); return true; }
+  return false;
+}
+
+function seedData() {
+  const now = Date.now();
+  const day = 86400000;
+  const seeds = [
+    { q: 'ALPINE gets first design partner by Q3 2026', prob: 65, cat: 'Career', date: '2026-09-30', imp: 'High' },
+    { q: 'We pick Coastal DE over Eastern Shore MD', prob: 70, cat: 'Life', date: '2026-08-01', imp: 'High' },
+    { q: 'Cat knocks something off counter today', prob: 95, cat: 'Wild Card', date: '2026-04-21', imp: 'Low' },
+    { q: 'BTC above 150k by end of 2026', prob: 40, cat: 'Markets', date: '2026-12-31', imp: 'Medium' },
+    { q: 'Find technical co-founder by September', prob: 35, cat: 'ALPINE', date: '2026-09-01', imp: 'High' },
+    { q: 'Kids adjust to new school within 3 months', prob: 80, cat: 'Life', date: '2026-07-15', imp: 'High' },
+    { q: 'First paying ALPINE customer by Q4 2026', prob: 25, cat: 'ALPINE', date: '2026-12-31', imp: 'High' },
+    { q: 'Rain tomorrow', prob: 50, cat: 'Wild Card', date: '2026-04-21', imp: 'Low' },
+  ];
+  predictions = seeds.map((s, i) => ({
+    id: now - (seeds.length - i) * 1000,
+    question: s.q,
+    probability: s.prob,
+    category: s.cat,
+    resolutionDate: s.date,
+    importance: s.imp,
+    createdAt: new Date(now - (10 - i) * day).toISOString(),
+    resolved: false,
+    outcome: null,
+    resolvedAt: null,
+    history: [{ prob: s.prob, date: new Date(now - (10 - i) * day).toISOString() }]
+  }));
+  save();
+}
+
+// ─── HELPERS ───
+function probColor(p) {
+  if (p >= 70) return 'var(--green)';
+  if (p <= 30) return 'var(--red)';
+  return 'var(--amber)';
+}
+function catClass(c) { return 'tag-' + c.toLowerCase().replace(/\s/g, ''); }
+function daysLeft(d) {
+  const diff = Math.ceil((new Date(d) - new Date()) / 86400000);
+  return diff < 0 ? 'Overdue' : diff === 0 ? 'Today' : diff + 'd left';
+}
+function daysLeftNum(d) { return Math.ceil((new Date(d) - new Date()) / 86400000); }
+function impOrder(imp) { return imp === 'High' ? 3 : imp === 'Medium' ? 2 : 1; }
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── BRIER / CALIBRATION ───
+function brierScore() {
+  const resolved = predictions.filter(p => p.resolved);
+  if (!resolved.length) return null;
+  const sum = resolved.reduce((s, p) => {
+    const f = p.probability / 100;
+    const o = p.outcome === 'yes' ? 1 : 0;
+    return s + (f - o) ** 2;
+  }, 0);
+  return sum / resolved.length;
+}
+
+function calibrationData() {
+  const resolved = predictions.filter(p => p.resolved);
+  const buckets = {};
+  for (let i = 0; i <= 9; i++) buckets[i] = { total: 0, yes: 0 };
+  resolved.forEach(p => {
+    const b = Math.min(9, Math.floor(p.probability / 10));
+    buckets[b].total++;
+    if (p.outcome === 'yes') buckets[b].yes++;
+  });
+  return buckets;
+}
+
+function calibrationScore() {
+  const resolved = predictions.filter(p => p.resolved);
+  if (resolved.length < 3) return null;
+  const buckets = calibrationData();
+  let totalDev = 0, count = 0;
+  Object.keys(buckets).forEach(k => {
+    const b = buckets[k];
+    if (b.total > 0) {
+      const expected = (parseInt(k) * 10 + 5) / 100;
+      const actual = b.yes / b.total;
+      totalDev += Math.abs(expected - actual);
+      count++;
+    }
+  });
+  if (!count) return null;
+  return Math.round((1 - totalDev / count) * 100);
+}
+
+// ─── STATS ───
+function computeStats() {
+  const active = predictions.filter(p => !p.resolved);
+  const resolved = predictions.filter(p => p.resolved);
+  const total = predictions.length;
+  const wins = resolved.filter(p =>
+    (p.probability > 50 && p.outcome === 'yes') || (p.probability < 50 && p.outcome === 'no')
+  ).length;
+  const winRate = resolved.length ? Math.round(wins / resolved.length * 100) : 0;
+  const bs = brierScore();
+
+  // Best/worst category
+  const catScores = {};
+  resolved.forEach(p => {
+    if (!catScores[p.category]) catScores[p.category] = { sum: 0, n: 0 };
+    const f = p.probability / 100, o = p.outcome === 'yes' ? 1 : 0;
+    catScores[p.category].sum += (f - o) ** 2;
+    catScores[p.category].n++;
+  });
+  let best = '—', worst = '—', bestScore = Infinity, worstScore = -Infinity;
+  Object.entries(catScores).forEach(([cat, d]) => {
+    const avg = d.sum / d.n;
+    if (avg < bestScore) { bestScore = avg; best = cat; }
+    if (avg > worstScore) { worstScore = avg; worst = cat; }
+  });
+
+  // Streak
+  let streak = 0;
+  const sorted = [...resolved].sort((a, b) => new Date(b.resolvedAt) - new Date(a.resolvedAt));
+  for (const p of sorted) {
+    const right = (p.probability > 50 && p.outcome === 'yes') || (p.probability < 50 && p.outcome === 'no');
+    if (right) streak++; else break;
+  }
+
+  // Category counts
+  const catCounts = {};
+  predictions.forEach(p => { catCounts[p.category] = (catCounts[p.category] || 0) + 1; });
+
+  return { total, active: active.length, resolved: resolved.length, winRate, bs, best, worst, streak, catCounts };
+}
+
+// ─── RENDER ───
+function render() {
+  const stats = computeStats();
+  const bs = brierScore();
+  const cs = calibrationScore();
+
+  // Header
+  document.getElementById('h-active').textContent = stats.active;
+  document.getElementById('h-resolved').textContent = stats.resolved;
+  document.getElementById('h-calibration').textContent = cs !== null ? cs + '%' : '—';
+  document.getElementById('h-brier').textContent = bs !== null ? bs.toFixed(3) : '—';
+
+  // Filter & sort
+  const cat = document.getElementById('filterCat').value;
+  const sort = document.getElementById('sortBy').value;
+  let active = predictions.filter(p => !p.resolved);
+  let resolved = predictions.filter(p => p.resolved);
+  if (cat !== 'all') {
+    active = active.filter(p => p.category === cat);
+    resolved = resolved.filter(p => p.category === cat);
+  }
+  const sortFn = {
+    date: (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+    probability: (a, b) => b.probability - a.probability,
+    importance: (a, b) => impOrder(b.importance) - impOrder(a.importance),
+    days: (a, b) => daysLeftNum(a.resolutionDate) - daysLeftNum(b.resolutionDate),
+  }[sort];
+  active.sort(sortFn);
+
+  // Active grid
+  document.getElementById('activeGrid').innerHTML = active.map(p => `
+    <div class="card" style="animation-delay:${Math.random()*.2}s">
+      <div class="pred-meta">
+        <span class="tag ${catClass(p.category)}">${p.category}</span>
+        <span class="importance importance-${p.importance.toLowerCase()}">${p.importance}</span>
+        <span class="days-left">${daysLeft(p.resolutionDate)}</span>
+      </div>
+      <div class="pred-question">${p.question}</div>
+      <div class="prob-display" style="color:${probColor(p.probability)}">${p.probability}%</div>
+      <div class="prob-bar-wrap">
+        <div class="prob-bar" style="width:${p.probability}%;background:${probColor(p.probability)}"></div>
+      </div>
+      ${p.history.length > 1 ? `<div class="history-line">Updated ${p.history.length - 1}x · Started at ${p.history[0].prob}%</div>` : ''}
+      <div class="pred-actions">
+        <button class="btn btn-sm" onclick="openUpdate('${p.id}')">↻ Update</button>
+        <button class="btn btn-sm btn-green" onclick="resolve('${p.id}','yes')">✓ YES</button>
+        <button class="btn btn-sm btn-red" onclick="resolve('${p.id}','no')">✗ NO</button>
+      </div>
+    </div>
+  `).join('');
+
+  // Resolved
+  document.getElementById('resolvedCount').textContent = `(${resolved.length})`;
+  resolved.sort((a, b) => new Date(b.resolvedAt) - new Date(a.resolvedAt));
+  document.getElementById('resolvedGrid').innerHTML = resolved.map(p => {
+    const right = (p.probability > 50 && p.outcome === 'yes') || (p.probability < 50 && p.outcome === 'no') || (p.probability === 50);
+    const f = p.probability / 100, o = p.outcome === 'yes' ? 1 : 0;
+    const score = (f - o) ** 2;
+    return `
+    <div class="card resolved-card">
+      <div class="pred-meta">
+        <span class="tag ${catClass(p.category)}">${p.category}</span>
+        <span class="importance importance-${p.importance.toLowerCase()}">${p.importance}</span>
+      </div>
+      <div class="pred-question">${p.question}</div>
+      <div style="display:flex;align-items:center;gap:12px;margin:8px 0">
+        <div class="outcome ${p.outcome === 'yes' ? 'outcome-yes' : 'outcome-no'}">
+          ${p.outcome === 'yes' ? '✓ YES' : '✗ NO'}
+        </div>
+        <span style="font-size:.85rem;color:var(--text2)">@ ${p.probability}%</span>
+        <span style="font-size:.75rem;color:${right ? 'var(--green)' : 'var(--red)'};margin-left:auto">
+          ${right ? '👍 Right' : '👎 Wrong'} · Brier: ${score.toFixed(3)}
+        </span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Stats sidebar
+  document.getElementById('statsContent').innerHTML = `
+    <div class="stat-row"><span>Total Predictions</span><span class="val">${stats.total}</span></div>
+    <div class="stat-row"><span>Win Rate</span><span class="val">${stats.resolved ? stats.winRate + '%' : '—'}</span></div>
+    <div class="stat-row"><span>Avg Brier Score</span><span class="val">${stats.bs !== null ? stats.bs.toFixed(3) : '—'}</span></div>
+    <div class="stat-row"><span>Best Category</span><span class="val">${stats.best}</span></div>
+    <div class="stat-row"><span>Worst Category</span><span class="val">${stats.worst}</span></div>
+    <div class="stat-row"><span>Current Streak</span><span class="val">${stats.streak}🔥</span></div>
+  `;
+
+  drawPie(stats.catCounts);
+  drawCalibration();
+  drawBrierTrend();
+}
+
+// ─── ACTIONS ───
+function openModal() {
+  document.getElementById('createModal').classList.add('active');
+  document.getElementById('f-question').focus();
+  const d = new Date(); d.setMonth(d.getMonth() + 3);
+  document.getElementById('f-date').value = d.toISOString().split('T')[0];
+}
+function closeModal() { document.getElementById('createModal').classList.remove('active'); }
+
+function createPrediction() {
+  const q = document.getElementById('f-question').value.trim();
+  if (!q) return toast('Enter a question');
+  const prob = parseInt(document.getElementById('f-prob').value);
+  const cat = document.getElementById('f-cat').value;
+  const date = document.getElementById('f-date').value;
+  const imp = document.getElementById('f-importance').value;
+  if (!date) return toast('Pick a resolution date');
+
+  predictions.push({
+    id: Date.now().toString(),
+    question: q, probability: prob, category: cat,
+    resolutionDate: date, importance: imp,
+    createdAt: new Date().toISOString(),
+    resolved: false, outcome: null, resolvedAt: null,
+    history: [{ prob, date: new Date().toISOString() }]
+  });
+  save(); closeModal(); render();
+  document.getElementById('f-question').value = '';
+  document.getElementById('f-prob').value = 50;
+  document.getElementById('f-prob-val').textContent = '50%';
+  toast('Prediction created!');
+}
+
+function openUpdate(id) {
+  updatingId = id;
+  const p = predictions.find(x => x.id == id);
+  document.getElementById('u-question').textContent = p.question;
+  document.getElementById('u-prob').value = p.probability;
+  document.getElementById('u-prob-val').textContent = p.probability + '%';
+  document.getElementById('updateModal').classList.add('active');
+}
+function closeUpdateModal() { document.getElementById('updateModal').classList.remove('active'); updatingId = null; }
+
+function submitUpdate() {
+  const p = predictions.find(x => x.id == updatingId);
+  if (!p) return;
+  const newProb = parseInt(document.getElementById('u-prob').value);
+  p.probability = newProb;
+  p.history.push({ prob: newProb, date: new Date().toISOString() });
+  save(); closeUpdateModal(); render();
+  toast('Probability updated');
+}
+
+function resolve(id, outcome) {
+  const p = predictions.find(x => x.id == id);
+  if (!p) return;
+  if (!confirm(`Resolve "${p.question}" as ${outcome.toUpperCase()}?`)) return;
+  p.resolved = true;
+  p.outcome = outcome;
+  p.resolvedAt = new Date().toISOString();
+  save(); render();
+  toast(`Resolved as ${outcome.toUpperCase()}`);
+}
+
+function toggleResolved() {
+  const el = document.getElementById('resolvedContent');
+  const hdr = document.getElementById('resolvedToggle');
+  const open = el.style.display === 'none';
+  el.style.display = open ? 'block' : 'none';
+  hdr.classList.toggle('open', open);
+}
+
+// ─── IMPORT / EXPORT ───
+function exportData() {
+  const blob = new Blob([JSON.stringify(predictions, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `predictions_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  toast('Data exported');
+}
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (Array.isArray(data)) {
+        predictions = data;
+        save(); render();
+        toast(`Imported ${data.length} predictions`);
+      }
+    } catch { toast('Invalid JSON file'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ─── CHARTS ───
+function drawCalibration() {
+  const canvas = document.getElementById('calibrationCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 300 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = 300;
+  const pad = { t: 20, r: 20, b: 40, l: 50 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = 'var(--surface)';
+
+  // Grid
+  ctx.strokeStyle = 'rgba(42,42,90,.5)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 10; i++) {
+    const x = pad.l + (i / 10) * cw;
+    const y = pad.t + (i / 10) * ch;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ch); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+  }
+
+  // Diagonal
+  ctx.strokeStyle = 'rgba(59,130,246,.3)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]);
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t + ch);
+  ctx.lineTo(pad.l + cw, pad.t);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Data
+  const buckets = calibrationData();
+  ctx.fillStyle = '#3b82f6';
+  Object.keys(buckets).forEach(k => {
+    const b = buckets[k];
+    if (b.total > 0) {
+      const x = pad.l + ((parseInt(k) * 10 + 5) / 100) * cw;
+      const actual = b.yes / b.total;
+      const y = pad.t + ch - actual * ch;
+      const r = Math.min(8, 3 + b.total * 2);
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.globalAlpha = 0.9;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      // Count label
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`n=${b.total}`, x, y - r - 4);
+      ctx.fillStyle = '#3b82f6';
+    }
+  });
+
+  // Labels
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= 10; i++) {
+    ctx.fillText(i * 10 + '%', pad.l + (i / 10) * cw, pad.t + ch + 20);
+  }
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 10; i++) {
+    ctx.fillText(((10 - i) * 10) + '%', pad.l - 8, pad.t + (i / 10) * ch + 4);
+  }
+  ctx.save();
+  ctx.translate(12, pad.t + ch / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('Actual Rate', 0, 0);
+  ctx.restore();
+  ctx.textAlign = 'center';
+  ctx.fillText('Predicted Probability', pad.l + cw / 2, H - 4);
+}
+
+function drawBrierTrend() {
+  const canvas = document.getElementById('brierCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 300 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = 300;
+  const pad = { t: 20, r: 20, b: 40, l: 50 };
+  const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const resolved = predictions.filter(p => p.resolved).sort((a, b) => new Date(a.resolvedAt) - new Date(b.resolvedAt));
+  if (resolved.length < 1) {
+    ctx.fillStyle = '#94a3b8'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Resolve predictions to see Brier trend', W / 2, H / 2);
+    return;
+  }
+
+  // Compute running average
+  let sum = 0;
+  const points = resolved.map((p, i) => {
+    const f = p.probability / 100, o = p.outcome === 'yes' ? 1 : 0;
+    sum += (f - o) ** 2;
+    return { x: i, y: sum / (i + 1) };
+  });
+
+  // Grid
+  ctx.strokeStyle = 'rgba(42,42,90,.5)'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.t + (i / 5) * ch;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+  }
+
+  // Line
+  const maxY = Math.max(0.5, ...points.map(p => p.y));
+  ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    const x = pad.l + (points.length > 1 ? (p.x / (points.length - 1)) * cw : cw / 2);
+    const y = pad.t + ch - (p.y / maxY) * ch;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Dots
+  ctx.fillStyle = '#f59e0b';
+  points.forEach(p => {
+    const x = pad.l + (points.length > 1 ? (p.x / (points.length - 1)) * cw : cw / 2);
+    const y = pad.t + ch - (p.y / maxY) * ch;
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // Labels
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 5; i++) {
+    ctx.fillText((maxY * (5 - i) / 5).toFixed(2), pad.l - 8, pad.t + (i / 5) * ch + 4);
+  }
+  ctx.textAlign = 'center';
+  ctx.fillText('Predictions Resolved →', pad.l + cw / 2, H - 4);
+  ctx.save();
+  ctx.translate(12, pad.t + ch / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Running Brier Score', 0, 0);
+  ctx.restore();
+}
+
+function drawPie(catCounts) {
+  const canvas = document.getElementById('pieCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 180, 180);
+  const entries = Object.entries(catCounts);
+  if (!entries.length) return;
+  const total = entries.reduce((s, [, v]) => s + v, 0);
+  const colors = { Life: '#3b82f6', Career: '#10b981', ALPINE: '#8b5cf6', Markets: '#f59e0b', Tech: '#06b6d4', 'Wild Card': '#ec4899' };
+  let angle = -Math.PI / 2;
+  const cx = 90, cy = 90, r = 70;
+  entries.forEach(([cat, count]) => {
+    const slice = (count / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, angle, angle + slice);
+    ctx.fillStyle = colors[cat] || '#666';
+    ctx.fill();
+    angle += slice;
+  });
+  // Donut hole
+  ctx.beginPath();
+  ctx.arc(cx, cy, 40, 0, Math.PI * 2);
+  ctx.fillStyle = '#111127';
+  ctx.fill();
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = 'bold 18px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(total, cx, cy);
+
+  // Legend
+  document.getElementById('pieLegend').innerHTML = entries.map(([cat, count]) =>
+    `<div class="pie-legend-item"><div class="dot" style="background:${colors[cat] || '#666'}"></div>${cat} (${count})</div>`
+  ).join('');
+}
+
+// ─── KEYBOARD SHORTCUT ───
+document.addEventListener('keydown', e => {
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) {
+    e.preventDefault();
+    openModal();
+  }
+  if (e.key === 'Escape') {
+    closeModal();
+    closeUpdateModal();
+  }
+});
+
+// Click outside modal to close
+document.getElementById('createModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+document.getElementById('updateModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeUpdateModal(); });
+
+// ─── INIT ───
+if (!load()) seedData();
+render();
+window.addEventListener('resize', () => { drawCalibration(); drawBrierTrend(); });
+</script>
+</body>
+</html>

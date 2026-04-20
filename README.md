@@ -8,6 +8,8 @@ A private prediction market for tracking your personal forecasts. Log what you b
 
 No servers, no accounts, no data leaving your machine — just you versus reality.
 
+![Screenshot](screenshot.png)
+
 ## ✨ Features
 
 - **localStorage persistence** — all data stays in your browser, no backend required
